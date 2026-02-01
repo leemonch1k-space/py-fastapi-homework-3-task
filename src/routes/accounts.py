@@ -109,7 +109,11 @@ async def activate_user(
             detail="Invalid or expired activation token."
         )
 
-    if token_record.expires_at < datetime.now(timezone.utc):
+    expires_at = token_record.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired activation token."
@@ -174,15 +178,20 @@ async def reset_password_complete(
     db_user = result.scalar_one_or_none()
 
     if not db_user or not db_user.is_active:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid email or token."
-        )
+        raise HTTPException(status_code=400, detail="Invalid email or token.")
 
     token_record = db_user.password_reset_token
 
     is_token_invalid = not token_record or token_record.token != user_data.token
-    is_token_expired = token_record and token_record.expires_at < datetime.now(timezone.utc)
+    is_token_expired = False
+
+    if token_record:
+        expires_at = token_record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at < datetime.now(timezone.utc):
+            is_token_expired = True
 
     if is_token_invalid or is_token_expired:
         if token_record:
@@ -195,7 +204,6 @@ async def reset_password_complete(
 
         await db.delete(token_record)
         await db.commit()
-
         return {"message": "Password reset successfully."}
 
     except SQLAlchemyError:
@@ -255,7 +263,7 @@ async def login_user(
         )
 
 
-@router.post("/api/v1/accounts/refresh/", response_model=accounts.RefreshTokenResponseSchema, status_code=200)
+@router.post("/refresh/", response_model=accounts.RefreshTokenResponseSchema, status_code=200)
 async def refresh_access_token(
         token_data: accounts.RefreshTokenRequestSchema,
         db: Annotated[AsyncSession, Depends(get_db)],
