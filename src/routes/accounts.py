@@ -214,7 +214,7 @@ async def reset_password_complete(
         )
 
 
-@router.post("/login/", response_model=accounts.TokenResponseSchema)
+@router.post("/login/", response_model=accounts.TokenResponseSchema, status_code=201)
 async def login_user(
         user_data: accounts.UserLoginSchema,
         db: Annotated[AsyncSession, Depends(get_db)],
@@ -274,7 +274,7 @@ async def refresh_access_token(
     except (TokenExpiredError, InvalidTokenError):
         raise HTTPException(
             status_code=400,
-            detail="Token has expired or is invalid."
+            detail="Token has expired."
         )
 
     query = (
