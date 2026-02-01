@@ -68,7 +68,7 @@ async def create_user(
 
         return new_user
 
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(
             status_code=500,
@@ -92,7 +92,7 @@ async def activate_user(
     if not db_user:
         raise HTTPException(
             status_code=400,
-            detail="User not found"
+            detail="Invalid or expired activation token."
         )
 
     if db_user.is_active:
@@ -126,7 +126,7 @@ async def activate_user(
 @router.post("/password-reset/request/", status_code=200)
 async def request_password_reset(
         db: Annotated[AsyncSession, Depends(get_db)],
-        user_data: accounts.PasswordResetRequestSchema
+        user_data: accounts.PasswordResetSchema
 ):
     success_message = {
         "message": "If you are registered, you will receive an email with instructions."
@@ -144,8 +144,9 @@ async def request_password_reset(
         return success_message
 
     try:
-        await db.delete(db_user.password_reset_token)
-        await db.flush()
+        if db_user.password_reset_token:
+            await db.delete(db_user.password_reset_token)
+            await db.flush()
 
         new_reset_token = PasswordResetTokenModel(user_id=db_user.id)
         db.add(new_reset_token)
@@ -154,7 +155,7 @@ async def request_password_reset(
 
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="An error occurred.")
+        return success_message
 
     return success_message
 
@@ -207,7 +208,7 @@ async def reset_password_complete(
 
 @router.post("/login/", response_model=accounts.TokenResponseSchema)
 async def login_user(
-        user_data: accounts.UserLoginRequestSchema,
+        user_data: accounts.UserLoginSchema,
         db: Annotated[AsyncSession, Depends(get_db)],
         jwt_manager: Annotated[JWTAuthManagerInterface, Depends(get_jwt_auth_manager)],
         settings: Annotated[BaseAppSettings, Depends(get_settings)]
@@ -252,6 +253,7 @@ async def login_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while processing the request."
         )
+
 
 @router.post("/api/v1/accounts/refresh/", response_model=accounts.RefreshTokenResponseSchema, status_code=200)
 async def refresh_access_token(

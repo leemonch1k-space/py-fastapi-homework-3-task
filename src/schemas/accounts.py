@@ -24,7 +24,7 @@ class UserActivationSchema(BaseModel):
 
 
 class UserLoginSchema(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
