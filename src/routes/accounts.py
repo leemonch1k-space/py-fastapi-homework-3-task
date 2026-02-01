@@ -237,8 +237,10 @@ async def login_user(
         )
 
     try:
-        access_token = jwt_manager.create_access_token(data={"sub": str(user.id)})
-        refresh_token = jwt_manager.create_refresh_token(data={"sub": str(user.id)})
+        token_payload = {"sub": str(user.id), "user_id": user.id}
+
+        access_token = jwt_manager.create_access_token(data=token_payload)
+        refresh_token = jwt_manager.create_refresh_token(data=token_payload)
 
         new_refresh_token = RefreshTokenModel.create(
             user_id=user.id,
@@ -299,6 +301,8 @@ async def refresh_access_token(
             detail="User not found."
         )
 
-    new_access_token = jwt_manager.create_access_token(data={"sub": str(user.id)})
+    new_access_token = jwt_manager.create_access_token(
+        data={"sub": str(user.id), "user_id": user.id}
+    )
 
     return {"access_token": new_access_token}
